@@ -1,0 +1,3 @@
+- add read/write from xml/stream
+- find a way to simlify adding of overloaded funcs
+- need to handle nested properties case
