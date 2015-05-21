@@ -2,6 +2,8 @@
 #include <map>
 #include <typeinfo>
 #include <memory>
+#include <sstream>
+#include <vector>
 // #include <boost/lexical_cast.hpp>
 
 // template<typename T>
@@ -38,6 +40,25 @@ namespace aux {
 
 
 	struct prop_holder {
+		enum data_type_t {
+			char_value,
+			uchar_value,
+			short_value,
+			ushort_value,
+			integer_value, 
+			uinteger_value, 
+			float_value,
+			double_value,
+			bool_value,
+			unknowns_type_value
+		};
+
+		template<typename V> static data_type_t get_type_enum() { return unknowns_type_value; }
+		template<> static data_type_t get_type_enum<int>() { return integer_value; }
+		template<> static data_type_t get_type_enum<unsigned int>() { return uinteger_value; }
+
+		virtual data_type_t get_valuetype_enum() const { return unknowns_type_value; }
+		
 		prop_holder() : read_only(false) {}
 		virtual ~prop_holder() {}
 		virtual void from_string(void* owner, const std::string&) const = 0;
@@ -45,13 +66,16 @@ namespace aux {
 		bool read_only;
 	};
 
-	template<class OwnerType, typename ValueType>
+	template<class OwnerType, class ValueType>
 	struct prop_holder_t : prop_holder{
+
+		data_type_t get_valuetype_enum() const { return get_type_enum<ValueType>(); }
+
 		virtual ValueType get(const OwnerType*) const = 0;
 		virtual void set(OwnerType*, const ValueType&) const = 0;
 	};
 
-	template<class T, typename V>
+	template<class T, class V>
 	struct prop_holder_m_const : prop_holder_t<T, V>{
 		typedef typename V const T::* const mptr_t;
 		mptr_t ptr;
@@ -68,7 +92,7 @@ namespace aux {
 		}
 	};
 
-	template<class T, typename V>
+	template<class T, class V>
 	struct prop_holder_m : prop_holder_t<T, V>{
 		typedef typename V T::*mptr_t;
 		mptr_t ptr;
@@ -94,7 +118,7 @@ namespace aux {
 		}
 	};
 
-	template<class OwnerType, typename ValueType>
+	template<class OwnerType, class ValueType>
 	struct prop_holder_f : prop_holder_t<OwnerType, ValueType>{
 		//typedef typename ValueType OwnerType::*mptr_t;
 		typedef void (OwnerType::* setter_t) (ValueType);
@@ -132,11 +156,12 @@ namespace aux {
 
 
 class property {
-public:
-	property() : value_type(typeid(void)), owner_type(typeid(void)), holder(0){}
-	property(const std::type_info& owner_type, const std::type_info& value_type, prop_holder* holder)
-		: value_type(value_type), owner_type(owner_type), holder(holder)
-	{}
+public:	
+	property(const std::type_info& owner_type, const std::type_info& value_type, prop_holder* holder, const char* name, const char* attribs="")
+		: value_type(value_type), owner_type(owner_type), holder(holder), name(name), atributes(attribs)
+	{
+		data_type = holder->get_valuetype_enum();
+	}
 
 	~property() {
 		delete holder; 
@@ -144,8 +169,8 @@ public:
 	}
 	
 	//data member property
-	template<class T, typename V>
-	static std::shared_ptr<property> create(V T::* p, bool read_only) {
+	template<class T, class V>
+	static std::shared_ptr<property> create(V T::* p, bool read_only, const char* name, const char* attribs) {
 		const std::type_info& ot = typeid(T);
 		const std::type_info& vt = typeid(V);
 		prop_holder* holder = 0;
@@ -154,26 +179,26 @@ public:
 		else
 			holder = new prop_holder_m <T,V>(p);
 
-		std::shared_ptr<property> out ( new property(ot, vt, holder) );
+		std::shared_ptr<property> out ( new property(ot, vt, holder, name, attribs) );
 		return out;
 	}
 
 	//handle case of const data member
-	template<class T, typename V>
-	static std::shared_ptr<property> create(V const T::* const p) {
+	template<class T, class V>
+	static std::shared_ptr<property> create(V const T::* const p, const char* name, const char* attribs) {
 		const std::type_info& ot = typeid(T);
 		const std::type_info& vt = typeid(V);
 		prop_holder* holder = new prop_holder_m_const <T,V>(p);
-		std::shared_ptr<property> out ( new property(ot, vt, holder) );
+		std::shared_ptr<property> out ( new property(ot, vt, holder, name, attribs) );
 		return out;
 	}
 
-	template<class T, typename V>
-	static std::shared_ptr<property> create(V(T::* getter) () const, void (T::* setter) (V)) {
+	template<class T, class V>
+	static std::shared_ptr<property> create(V(T::* getter) () const, void (T::* setter) (V), const char* name, const char* attribs) {
 		const std::type_info& ot = typeid(T);
 		const std::type_info& vt = typeid(V);		
 		prop_holder* holder = new prop_holder_f<T,V>(getter, setter);
-		std::shared_ptr<property> out (new property(ot, vt, holder) );
+		std::shared_ptr<property> out (new property(ot, vt, holder, name, attribs) );
 		return out;
 	}
 
@@ -185,7 +210,7 @@ public:
 			set<T, const char*>(owner, s);
 	}
 
-	template<class T, typename V>
+	template<class T, class V>
 	void set(T* owner, V v) const{
 		if (typeid(T)!=owner_type) return;
 		if (typeid(V)==value_type){
@@ -198,7 +223,7 @@ public:
 		}
 	}
 
-	template<class T, typename V>
+	template<class T, class V>
 	V get(const T* owner) const{
 		if (typeid(T)!=owner_type) return V(0);
 		if (typeid(V)!=value_type)
@@ -211,44 +236,94 @@ public:
 	const std::type_info& owner_type;
 	const std::type_info& value_type;
 
-	operator bool() const { return owner_type != typeid(void); }
+	operator bool() const { return this!=nullptr && owner_type != typeid(void); }
+
+	std::string name;
+	std::string atributes;
+	prop_holder::data_type_t data_type;
 
 private:
+
 	prop_holder* holder;
 };
 
 struct registry{
 	typedef std::map<std::string, std::shared_ptr<property> > properties_t;
-	typedef std::map<std::string, properties_t> types_t;
 
-	template<class T, typename V>
-	static const property& reg(const char* name, V T::*ptr, bool read_only = false){
-		const type_info& ti = typeid(T);
-		std::shared_ptr<property> p = property::create<T, V>(ptr, read_only);
-		types[ti.name()][name] = p;
-		return *p;
-	}
+	struct void_type {};
 
-	template<class T, typename V>
-	static const property& reg(const char* name, V const T::* const ptr){
-		const type_info& ti = typeid(T);
-		std::shared_ptr<property> p = property::create<T, V>(ptr);
-		types[ti.name()][name] = p;
-		return *p;
-	}
+	struct class_record_t {
 
-	template<class T, typename V>
-	static const property& reg(const char* name, V (T::* getter) () const, void (T::* setter) (V)=0){
+		std::vector<class_record_t*> base_classes;
+
+		static const property& empty_property() {
+			static std::shared_ptr<property> empty_one = property::create<void_type, int>(nullptr, true, "","");
+			return *empty_one;
+		}
+
+
+		class_record_t(const type_info& ti) :ti(ti){}
+		properties_t properties;
+		const type_info& ti;
+
+
+		template<class T, class V>
+		class_record_t& reg(const char* name, V T::*ptr, bool read_only = false, const char* attribs = ""){
+			//TODO: check is nested property!
+			std::shared_ptr<property> p = property::create<T, V>(ptr, read_only, name,attribs);
+			properties[name] = p;
+			return *this;
+		}
+
+		template<class T, class V>
+		class_record_t& reg(const char* name, V const T::* const ptr, const char* attribs = ""){
+			std::shared_ptr<property> p = property::create<T, V>(ptr,name,attribs);
+			properties[name] = p;
+			return *this;
+		}
+
+		template<class T, class V>
+		class_record_t& reg(const char* name, V(T::* getter) () const, void (T::* setter) (V) = 0, const char* attribs = ""){
+			std::shared_ptr<property> p = property::create<T, V>(getter, setter,name,attribs);
+			properties[name] = p;
+			return *this;
+		}
+
+		template<class T>
+		class_record_t& base() {
+			base_classes.push_back(&registry::class_<T>());
+			return *this;
+		}
+
+	};
+
+	typedef std::map<std::string, std::shared_ptr<class_record_t>> types_t;
+
+	template<class T>
+	static class_record_t& class_() {
 		const type_info& ti = typeid(T);
-		std::shared_ptr<property> p = property::create<T, V>(getter, setter);
-		types[ti.name()][name] = p;
-		return *p;
+		auto it = types.find(ti.name());
+		if (it == types.end()) {
+			std::shared_ptr<class_record_t> p(new class_record_t(ti));
+			types[ti.name()] = p;
+			return *p;
+		}
+
+		return *it->second;
 	}
 
 	template<class T>
 	static const property& get(const char* name){
-		const type_info& ti = typeid(T);		
-		return *(types[ti.name()][name]);
+		const type_info& ti = typeid(T);
+
+		auto t = types.find(ti.name());
+		if (t == types.end()) return class_record_t::empty_property();
+
+		auto & properties = t->second->properties;
+		auto p = properties.find(name);
+		if (p == properties.end()) return class_record_t::empty_property();
+
+		return *(p->second);
 	}
 
 	static void Clear() { types.clear(); }
