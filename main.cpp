@@ -7,7 +7,25 @@ inline void pl(const char* str) { std::cout << str << std::endl; }
 struct base_a {
 };
 
-class A {
+template<class T>
+struct props_auto_reg {
+public:
+	typedef typename T _owner;
+	props_auto_reg() { auto_reg; }
+private:
+	struct type_registrator {
+		type_registrator() {
+			_owner::reg();
+		}
+	};
+
+	static const type_registrator auto_reg;
+};
+
+template<class T>
+typename const props_auto_reg<T>::type_registrator props_auto_reg<T>::auto_reg;
+
+class A : public props_auto_reg<A>{
 public:
 	static void reg(){
 		registry::class_<A>()
@@ -20,6 +38,7 @@ public:
 			.reg("const_value", &A::const_value);
 	}
 	A() :value(-1), const_value(10.0f){
+		//this->auto_reg;
 	}
 	
 private:
@@ -43,8 +62,6 @@ private:
 
 void test_props()
 {
-	A::reg();
-
 	//const property& p = registry::get<A>("value");
 	auto& p = registry::get<A>("value");
 	auto& up = registry::get<A>("uval");
