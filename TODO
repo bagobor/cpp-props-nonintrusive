@@ -1,3 +1,8 @@
 - add read/write from xml/stream
 - find a way to simlify adding of overloaded funcs
 - need to handle nested properties case
+
+- use std::ref
+- add template<T> T* property::get_dataptr() method to support runtime type veryfication
+- add serilization support
+- add imgui sample
