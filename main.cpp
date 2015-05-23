@@ -31,7 +31,7 @@ public:
 		registry::class_<A>()
 			.base<base_a>()
 			.reg("uval", &A::uval)
-			.reg("value", &A::value, false, "editor=1")
+			.reg("value", &A::value, false, "min=0;max=10;default=5;step=1;editor=1")
 			.reg("bvalue", &A::get, &A::set)
 			.reg("cvalue", &A::cget)
 			.reg("cvalue", &A::dvalue, true)

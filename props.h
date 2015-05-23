@@ -41,7 +41,10 @@ namespace aux {
 
 	struct prop_holder {
 		enum data_type_t {
-			char_value,
+			wchar_value,
+			char16_value,
+			char32_value,
+			char_value,			
 			uchar_value,
 			short_value,
 			ushort_value,
@@ -50,12 +53,37 @@ namespace aux {
 			float_value,
 			double_value,
 			bool_value,
-			unknowns_type_value
+			longlong_value,
+			unknowns_type_value,
+			data_type_mask = 0xff
 		};
 
+		
 		template<typename V> static data_type_t get_type_enum() { return unknowns_type_value; }
 		template<> static data_type_t get_type_enum<int>() { return integer_value; }
 		template<> static data_type_t get_type_enum<unsigned int>() { return uinteger_value; }
+		template<> static data_type_t get_type_enum<wchar_t>() { return wchar_value; }
+		//template<> static data_type_t get_type_enum<char16_t>() { return char16_value; }
+		//template<> static data_type_t get_type_enum<char32_t>() { return char32_value; }
+		template<> static data_type_t get_type_enum<char>() { return char_value; }
+		template<> static data_type_t get_type_enum<unsigned char>() { return uchar_value; }
+		template<> static data_type_t get_type_enum<short>() { return short_value; }
+		template<> static data_type_t get_type_enum<unsigned short>() { return ushort_value; }
+		template<> static data_type_t get_type_enum<float>() { return float_value; }
+		template<> static data_type_t get_type_enum<double>() { return double_value; }
+		template<> static data_type_t get_type_enum<bool>() { return bool_value; }
+		template<> static data_type_t get_type_enum<long long>() { return longlong_value; }
+
+
+		//TODO:
+		enum container_type_t {
+			stdstring_type = 1 << 16,
+			stdvector_type = 2 << 16,
+			stdlist_type = 4 << 16,
+			stdcontainer_type_mask = 0xff0000
+		};
+		//template<typename >
+		//template<> static data_type_t get_type_enum<std::string>() { return std_string_value; }
 
 		virtual data_type_t get_valuetype_enum() const { return unknowns_type_value; }
 		
