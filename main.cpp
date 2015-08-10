@@ -1,6 +1,7 @@
 #include "props.h"
 
 #include <iostream>
+#include <functional>
 
 inline void pl(const char* str) { std::cout << str << std::endl; }
 
@@ -30,15 +31,14 @@ public:
 	static void reg(){
 		registry::class_<A>()
 			.base<base_a>()
-			.reg("uval", &A::uval)
-			.reg("value", &A::value, false, "min=0;max=10;default=5;step=1;editor=1")
+			.prop("uval", &A::uval)
+			.prop("value", &A::value, false, "min=0;max=10;default=5;step=1;editor=1")
 			.reg("bvalue", &A::get, &A::set)
 			.reg("cvalue", &A::cget)
-			.reg("cvalue", &A::dvalue, true)
-			.reg("const_value", &A::const_value);
+			.prop("dvalue", &A::dvalue, true)
+			.prop("const_value", &A::const_value);
 	}
 	A() :value(-1), const_value(10.0f){
-		//this->auto_reg;
 	}
 	
 private:
@@ -88,9 +88,21 @@ void test_props()
 	registry::Clear();
 }
 
+//struct Test {
+//	int foo() {
+//		using namespace std;
+//		cout << "Test::foo() \n";
+//		return 5;
+//	}
+//};
 
 int main()
 {
+	//Test test; test.foo();
+
+	//std::function<int(Test*)> mt = &Test::foo;
+	//mt(&test);
+
 	test_props();
 
 	return 0;

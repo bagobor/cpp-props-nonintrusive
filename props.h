@@ -4,6 +4,7 @@
 #include <memory>
 #include <sstream>
 #include <vector>
+#include <functional>
 // #include <boost/lexical_cast.hpp>
 
 // template<typename T>
@@ -146,11 +147,14 @@ namespace aux {
 		}
 	};
 
-	template<class OwnerType, class ValueType>
-	struct prop_holder_f : prop_holder_t<OwnerType, ValueType>{
-		//typedef typename ValueType OwnerType::*mptr_t;
-		typedef void (OwnerType::* setter_t) (ValueType);
-		typedef ValueType (OwnerType::* getter_t) () const;
+	template<class OwnerType, typename ValueType>
+	struct prop_holder_f : prop_holder_t<OwnerType, ValueType> {
+		//typedef void (OwnerType::* setter_t) (ValueType);
+		//typedef ValueType (OwnerType::* getter_t) () const;
+		typedef std::function<void(OwnerType*, ValueType)> setter_t;
+		typedef std::function<ValueType(const OwnerType*)> getter_t;
+		//typedef ValueType (OwnerType::* getter_t) () const;
+		//std::function<ValueType(OwnerType*)> ffff;
 
 		getter_t getter;
 		setter_t setter;
@@ -159,25 +163,29 @@ namespace aux {
 			{read_only = s ? false : true;}
 
 		virtual ValueType get(const OwnerType* po) const {
-			return po ? (po->*getter)() : ValueType(0);
+			//return po ? (po->*getter)() : ValueType(0);
+			return po ? getter(po) : ValueType(0);
 		}
 
 		virtual void set(OwnerType* po, const ValueType& v) const {
 			if (read_only || !po) return;
-			(po->*setter)(v);
+			//(po->*setter)(v);
+			setter(po, v);
 		}
 
 		virtual void from_string(void* owner, const std::string& str) const {
 			if (read_only || !owner) return;
-			OwnerType* ot = (OwnerType*)owner;			
+			OwnerType* ot = (OwnerType*)owner;
 			ValueType v = aux::lexical_cast<ValueType>(str);
-			(ot->*setter)(v);
+			//(ot->*setter)(v);
+			setter(ot, v);
 		}
 
 		virtual std::string to_string(const void* owner) const {
 			if (!owner) return std::string();
 			OwnerType* ot = (OwnerType*)owner;			
-			ValueType v = (ot->*getter)();
+			//ValueType v = (ot->*getter)();
+			ValueType v = getter(ot);
 			return aux::lexical_cast<std::string>(v);
 		}
 	};
@@ -185,8 +193,8 @@ namespace aux {
 
 class property {
 public:	
-	property(const std::type_info& owner_type, const std::type_info& value_type, prop_holder* holder, const char* name, const char* attribs="")
-		: value_type(value_type), owner_type(owner_type), holder(holder), name(name), atributes(attribs)
+	property(const std::type_info& owner_type, const std::type_info& value_type, prop_holder* holder, const char* name, const char* attribs=nullptr)
+		: value_type(value_type), owner_type(owner_type), holder(holder), name(name?name:""), atributes(attribs? attribs:"")
 	{
 		data_type = holder->get_valuetype_enum();
 	}
@@ -201,6 +209,7 @@ public:
 	static std::shared_ptr<property> create(V T::* p, bool read_only, const char* name, const char* attribs) {
 		const std::type_info& ot = typeid(T);
 		const std::type_info& vt = typeid(V);
+		const auto value_type_name = vt.name();
 		prop_holder* holder = 0;
 		if (read_only)
 			holder = new prop_holder_m_const <T,V>(p);
@@ -216,6 +225,7 @@ public:
 	static std::shared_ptr<property> create(V const T::* const p, const char* name, const char* attribs) {
 		const std::type_info& ot = typeid(T);
 		const std::type_info& vt = typeid(V);
+		const auto value_type_name = vt.name();
 		prop_holder* holder = new prop_holder_m_const <T,V>(p);
 		std::shared_ptr<property> out ( new property(ot, vt, holder, name, attribs) );
 		return out;
@@ -285,7 +295,7 @@ struct registry{
 		std::vector<class_record_t*> base_classes;
 
 		static const property& empty_property() {
-			static std::shared_ptr<property> empty_one = property::create<void_type, int>(nullptr, true, "","");
+			static std::shared_ptr<property> empty_one = property::create<void_type, int>(nullptr, true, nullptr, nullptr);
 			return *empty_one;
 		}
 
@@ -296,7 +306,7 @@ struct registry{
 
 
 		template<class T, class V>
-		class_record_t& reg(const char* name, V T::*ptr, bool read_only = false, const char* attribs = ""){
+		class_record_t& prop(const char* name, V T::*ptr, bool read_only = false, const char* attribs = nullptr){
 			//TODO: check is nested property!
 			std::shared_ptr<property> p = property::create<T, V>(ptr, read_only, name,attribs);
 			properties[name] = p;
@@ -304,14 +314,14 @@ struct registry{
 		}
 
 		template<class T, class V>
-		class_record_t& reg(const char* name, V const T::* const ptr, const char* attribs = ""){
+		class_record_t& prop(const char* name, V const T::* const ptr, const char* attribs = nullptr){
 			std::shared_ptr<property> p = property::create<T, V>(ptr,name,attribs);
 			properties[name] = p;
 			return *this;
 		}
 
 		template<class T, class V>
-		class_record_t& reg(const char* name, V(T::* getter) () const, void (T::* setter) (V) = 0, const char* attribs = ""){
+		class_record_t& reg(const char* name, V(T::* getter) () const, void (T::* setter) (V) = nullptr, const char* attribs = nullptr){
 			std::shared_ptr<property> p = property::create<T, V>(getter, setter,name,attribs);
 			properties[name] = p;
 			return *this;
