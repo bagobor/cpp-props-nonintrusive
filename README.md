@@ -3,7 +3,7 @@ _Intro:_
 Once I've been working on a MMORPG PC project based on modified version of Reality Engine (more info http://www.artificialstudios.com/features.php). 
 Engine architecture was centered around Actor class and its derivatives. 
 And serialization was done via stored list of class propterties ie something like 
-```
+```c++
 class Actor {
    ...
    std::list<Property> m_props;
@@ -11,7 +11,7 @@ class Actor {
 };
 ```
 and 
-```
+```c++
 struct Property {
     std::string name;
     union {...};
@@ -27,7 +27,7 @@ So I can to idea create a lightweigh way to declare properties with storing this
 And here we are ... 
 
 _Example:_
-```
+```c++
 class A : public props_auto_reg<A>{
 public:
 	static void reg(){
@@ -57,23 +57,21 @@ private:
 	int value, bvalue, cvalue, dvalue;
 	const float const_value;
 };
-
-...
-
-	A a;
-	p.set(&a, 2);
-	p.set(&a, "5");
-
-	std::string svalue = p.get<A, std::string>(&a);
-	int ivalue = p.get<A, int>(&a);
-
-	const property& pc = registry::get<A>("const_value");
-	if (!pc) return;
-	float const_value = pc.get<A, float>(&a);
-
-	const property& pb = registry::get<A>("bvalue");
-	pb.set(&a, 5);
-	int bv = pb.get<A, int>(&a);
-
 ```
 
+```c++
+A a;
+p.set(&a, 2);
+p.set(&a, "5");
+
+std::string svalue = p.get<A, std::string>(&a);
+int ivalue = p.get<A, int>(&a);
+
+const property& pc = registry::get<A>("const_value");
+if (!pc) return;
+float const_value = pc.get<A, float>(&a);
+
+const property& pb = registry::get<A>("bvalue");
+pb.set(&a, 5);
+int bv = pb.get<A, int>(&a);
+```
