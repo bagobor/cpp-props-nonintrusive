@@ -1,6 +1,0 @@
-Once working on some MMO project based on Reality Engine. Engine has Actor class and its derivatives. Each of them has some amount (> 10) of properties (scale, color, ...). As we had big word (MMO game!) so smooth and fast loading was very important. But I noticed that engine spend some significant memory and loading time on creation abstract class properties.
-Lets do some calculations - when need to load 100 Actors its allocate 100*10 = 1000 properties, each property has std::string for it's name and another std::string for description. So loading 100 Actors involves ~3000 additional allocations.
-
-As engine uses that properties them for xml serialization and Editor bindings it was impossible to easily remove them....
-That project was closed ^( due to economical crisis.
-But recently I got flashback and decide that will be useful to use it in some of my pet projects.
