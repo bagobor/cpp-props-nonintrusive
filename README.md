@@ -1,3 +1,5 @@
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/bagobor/cpp-props-nonintrusive) 
+
 _Intro:_
 
 Once I've been working on a MMORPG PC project based on modified version of Reality Engine (more info http://www.artificialstudios.com/features.php). 
