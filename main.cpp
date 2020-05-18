@@ -3,7 +3,11 @@
 #include <iostream>
 #include <functional>
 
-inline void pl(const char* str) { std::cout << str << std::endl; }
+#include <stdio.h>
+
+//inline void pl(const char* str) {
+//	std::cout << str << std::endl; 
+//}
 
 struct base_a {
 };
@@ -30,6 +34,7 @@ class A : public props_auto_reg<A>{
 public:
 	static void reg(){
 		registry::class_<A>()
+		// registry::class_<A>("A")
 			.base<base_a>()
 			.prop("uval", &A::uval)
 			.prop("value", &A::value, false, "min=0;max=10;default=5;step=1;editor=1")
@@ -43,7 +48,8 @@ public:
 	
 private:
 	void set(int i) {
-		pl("set value");
+		printf("set value/n");
+		//pl("set value");
 		bvalue = i;
 	}
 	int get() const {
@@ -51,8 +57,11 @@ private:
 	}
 	int cget() const { return cvalue; }
 
-	unsigned int uval;
-	int value, bvalue, cvalue, dvalue;
+	unsigned int uval = 0;
+	int value = 0;
+	int bvalue = 0;
+	int cvalue = 0;
+	int dvalue = 0;;
 	const float const_value;
 };
 
@@ -63,17 +72,19 @@ private:
 void test_props()
 {
 	//const property& p = registry::get<A>("value");
+	auto class_reg = registry::class_<A>();
+
 	auto& p = registry::get<A>("value");
 	auto& up = registry::get<A>("uval");
-
-	auto class_reg = registry::class_<A>();
 
 	if (!p) return;
 
 	A a;
 	p.set(&a, 2);
+	// printf("%d", a.value);
 	p.set(&a, "5");
 
+	// return;
 	std::string svalue = p.get<A, std::string>(&a);
 	int ivalue = p.get<A, int>(&a);
 

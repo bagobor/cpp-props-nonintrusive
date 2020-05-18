@@ -5,15 +5,32 @@
 #include <sstream>
 #include <vector>
 #include <functional>
-// #include <boost/lexical_cast.hpp>
-
-// template<typename T>
-// std::string to_string(const T& value);
-
-// std::string to_string(int value) {return std::to_string(value);}
-// std::string to_string(long value) {return std::to_string(value);}
 
 namespace aux {
+	template <typename T>
+	T lexical_cast(const std::string& str)
+	{
+	    std::istringstream iss;
+	    iss.str(str.c_str());
+
+		T out;
+	    iss >> out;
+	    // deal with any error bits that may have been set on the stream
+		return out;
+	}
+
+	template <typename T>
+	T lexical_cast(const char* str)
+	{
+	    std::istringstream iss;
+	    iss.str(str);
+
+		T out;
+	    iss >> out;
+	    // deal with any error bits that may have been set on the stream
+		return out;
+	}
+
 	template <typename T, typename V>
 	T lexical_cast(const V& v)
 	{
@@ -28,15 +45,6 @@ namespace aux {
 	    // deal with any error bits that may have been set on the stream
 		return out;
 	}
-
-	//template <typename T>
-	//std::string lexical_cast(const T& value)
-	//{
-	//	std::istringstream iss;
-	//	iss << value;
-	//	// deal with any error bits that may have been set on the stream
-	//	return iss.str();
-	//}
 }
 
 
@@ -137,8 +145,12 @@ namespace aux {
 
 		virtual void from_string(void* owner, const std::string& str) const {
 			T* ot = (T*)owner;
-			if (read_only || !owner) return;
-			(*ot).*ptr = aux::lexical_cast<V>(str);
+			if (read_only || !owner) {
+				return;
+			}
+			V& value = (*ot).*ptr;
+			value = aux::lexical_cast<V>(str);
+			return;
 		}
 
 		virtual std::string to_string(const void* owner) const {
@@ -199,6 +211,8 @@ public:
 		data_type = holder->get_valuetype_enum();
 	}
 
+	property(const property&) = delete;
+
 	~property() {
 		delete holder; 
 		holder = 0;
@@ -216,6 +230,7 @@ public:
 		else
 			holder = new prop_holder_m <T,V>(p);
 
+		//TODO: use make_shared
 		std::shared_ptr<property> out ( new property(ot, vt, holder, name, attribs) );
 		return out;
 	}
@@ -236,34 +251,53 @@ public:
 		const std::type_info& ot = typeid(T);
 		const std::type_info& vt = typeid(V);		
 		prop_holder* holder = new prop_holder_f<T,V>(getter, setter);
+		//TODO: use value type here without heap allocation
 		std::shared_ptr<property> out (new property(ot, vt, holder, name, attribs) );
 		return out;
 	}
 
 	template<class T>
-	void set(T* owner, const char* s) const{
-		if (typeid(const char*)!=value_type)
-			set(owner, std::string(s));
-		else
-			set<T, const char*>(owner, s);
+	void set(T* owner, const char* new_value) const{
+		if (typeid(const char*) == value_type) {
+			set<T, const char*>(owner, new_value);
+			return;
+		}
+
+		// if (typeid(std::string) == value_type) {
+		// 	set<T, std::string>(owner, new_value);
+		// 	return;
+		// }
+		
+		//fallback to generic
+		set(owner, std::string(new_value));
 	}
 
+
+	//TODO: consider to user std::optional for get/set functions return value as a confimation of operation success
 	template<class T, class V>
 	void set(T* owner, V v) const{
-		if (typeid(T)!=owner_type) return;
-		if (typeid(V)==value_type){
+		const auto& owner_tid = typeid(T);
+		if (owner_tid != owner_type) {
+			//TODO: it may be a good idea to replace it with an asset, or atleas make it optional.
+			return;
+		}
+
+		const auto& value_tid = typeid(V);
+
+		if (value_tid == value_type) {
 			prop_holder_t<T, V>* h = static_cast<prop_holder_t<T, V>*>(holder);
 			h->set(owner, v);
+			return;
 		}
-		else{
-			std::string s = aux::lexical_cast<std::string>(v);
-			holder->from_string(owner, s);
-		}
+
+		// fallback to lexical cast to allow generic access
+		std::string s = aux::lexical_cast<std::string>(v);
+		holder->from_string(owner, s);
 	}
 
 	template<class T, class V>
 	V get(const T* owner) const{
-		if (typeid(T)!=owner_type) return V(0);
+		if (typeid(T) != owner_type) return V{0};
 		if (typeid(V)!=value_type)
 			return aux::lexical_cast<V>(holder->to_string(owner));
 
@@ -274,6 +308,7 @@ public:
 	const std::type_info& owner_type;
 	const std::type_info& value_type;
 
+	//TODO: replace with template based implementation
 	operator bool() const { return this!=nullptr && owner_type != typeid(void); }
 
 	std::string name;
@@ -338,15 +373,16 @@ struct registry{
 	typedef std::map<std::string, std::shared_ptr<class_record_t>> types_t;
 
 	template<class T>
-	static class_record_t& class_() {
+	static class_record_t& class_(const char* type_name = typeid(T).name()) {
 		const type_info& ti = typeid(T);
-		auto it = types.find(ti.name());
+		//TODO: remove "class " on MSVS platform
+		//auto it = types.find(ti.name());
+		auto it = types.find(type_name);
 		if (it == types.end()) {
 			std::shared_ptr<class_record_t> p(new class_record_t(ti));
-			types[ti.name()] = p;
+			types[type_name] = p;
 			return *p;
 		}
-
 		return *it->second;
 	}
 
