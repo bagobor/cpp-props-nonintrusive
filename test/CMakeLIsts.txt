@@ -1,0 +1,52 @@
+
+include(FetchContent)
+
+set(BINARY ${CMAKE_PROJECT_NAME}_tst)
+
+file(GLOB_RECURSE TEST_SOURCES LIST_DIRECTORIES false *.h *.cpp)
+
+set(SOURCES ${TEST_SOURCES})
+
+add_executable(${BINARY} ${TEST_SOURCES})
+
+add_test(NAME ${BINARY} COMMAND ${BINARY})
+
+target_link_libraries(${BINARY} PUBLIC MetaProps::metaprops)
+
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.10.0
+)
+
+FetchContent_GetProperties(googletest)
+message("TEST MESSAGE")
+if(NOT googletest_POPULATED)
+  FetchContent_Populate(googletest)
+  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "")
+  #add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+  add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
+  unset(CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
+  message("DEBUG: googletest is now populated")
+endif()
+
+# include(GoogleTest)
+
+# # Primary tool for this project
+# add_executable(test_app 
+#     main.cpp
+#     #debug.c # Optimized away for release builds 
+# )
+
+# add_dependencies(test_app gtest)
+
+# # Helpful diagnostic tool for development and testing
+# #add_executable(TestTool testTool.c)
+
+# #https://github.com/CLIUtils/cmake/blob/master/AddGoogleTest.cmake
+# add_executable(UnitTests tests.cpp)
+# #add_dependencies(UnitTests gtest)
+# target_link_libraries(UnitTests PUBLIC gtest)# gmock gtest_main)
+# #target_link_libraries(UnitTests gtest)
+# add_test(NAME that-test-I-made COMMAND UnitTests)
+# add_test(that-other-test-I-made UnitTests)
